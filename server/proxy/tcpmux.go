@@ -71,6 +71,29 @@ func (pxy *TCPMuxProxy) httpConnectListen(
 	return append(addrs, util.CanonicalAddr(domain, pxy.serverCfg.TCPMuxHTTPConnectPort)), nil
 }
 
+func (pxy *TCPMuxProxy) mcConnectListen(
+	domain string, addrs []string) ([]string, error,
+) {
+	var l net.Listener
+	var err error
+	routeConfig := &vhost.RouteConfig{
+		Domain: domain,
+	}
+	if pxy.cfg.LoadBalancer.Group != "" {
+		l, err = pxy.rc.TCPMuxGroupCtl.Listen(pxy.ctx, pxy.cfg.Multiplexer,
+			pxy.cfg.LoadBalancer.Group, pxy.cfg.LoadBalancer.GroupKey, *routeConfig)
+	} else {
+		l, err = pxy.rc.TCPMuxMCConnectMuxer.Listen(pxy.ctx, routeConfig)
+	}
+	if err != nil {
+		return nil, err
+	}
+	pxy.xl.Infof("tcpmux mcconnect multiplexer listens for host [%s], group [%s]",
+		domain, pxy.cfg.LoadBalancer.Group)
+	pxy.listeners = append(pxy.listeners, l)
+	return append(addrs, util.CanonicalAddr(domain, pxy.serverCfg.TCPMUXMCConnectPort)), nil
+}
+
 func (pxy *TCPMuxProxy) httpConnectRun() (remoteAddr string, err error) {
 	addrs := make([]string, 0)
 	for _, domain := range pxy.cfg.CustomDomains {
@@ -97,10 +120,37 @@ func (pxy *TCPMuxProxy) httpConnectRun() (remoteAddr string, err error) {
 	return remoteAddr, err
 }
 
+func (pxy *TCPMuxProxy) mcConnectRun() (remoteAddr string, err error) {
+	addrs := make([]string, 0)
+	for _, domain := range pxy.cfg.CustomDomains {
+		if domain == "" {
+			continue
+		}
+
+		addrs, err = pxy.mcConnectListen(domain, addrs)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	if pxy.cfg.SubDomain != "" {
+		addrs, err = pxy.mcConnectListen(pxy.cfg.SubDomain+"."+pxy.serverCfg.SubDomainHost, addrs)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	pxy.startCommonTCPListenersHandler()
+	remoteAddr = strings.Join(addrs, ",")
+	return remoteAddr, err
+}
+
 func (pxy *TCPMuxProxy) Run() (remoteAddr string, err error) {
 	switch v1.TCPMultiplexerType(pxy.cfg.Multiplexer) {
 	case v1.TCPMultiplexerHTTPConnect:
 		remoteAddr, err = pxy.httpConnectRun()
+	case v1.TCPMultiplexerMCConnect:
+		remoteAddr, err = pxy.mcConnectRun()
 	default:
 		err = fmt.Errorf("unknown multiplexer [%s]", pxy.cfg.Multiplexer)
 	}

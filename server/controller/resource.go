@@ -56,6 +56,9 @@ type ResourceController struct {
 	// TCPMux HTTP CONNECT multiplexer
 	TCPMuxHTTPConnectMuxer *tcpmux.HTTPConnectTCPMuxer
 
+	// TCPMux Minecraft Proxy Protocol multiplexer
+	TCPMuxMCConnectMuxer *tcpmux.MCConnectTCPMuxer
+
 	// All server manager plugin
 	PluginManager *plugin.Manager
 }

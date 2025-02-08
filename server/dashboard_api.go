@@ -72,6 +72,7 @@ type serverInfoResp struct {
 	VhostHTTPPort         int    `json:"vhostHTTPPort"`
 	VhostHTTPSPort        int    `json:"vhostHTTPSPort"`
 	TCPMuxHTTPConnectPort int    `json:"tcpmuxHTTPConnectPort"`
+	TCPMUXMCConnectPort   int    `json:"tcpmuxMCConnectPort"`
 	KCPBindPort           int    `json:"kcpBindPort"`
 	QUICBindPort          int    `json:"quicBindPort"`
 	SubdomainHost         string `json:"subdomainHost"`
@@ -112,6 +113,7 @@ func (svr *Service) apiServerInfo(w http.ResponseWriter, r *http.Request) {
 		VhostHTTPPort:         svr.cfg.VhostHTTPPort,
 		VhostHTTPSPort:        svr.cfg.VhostHTTPSPort,
 		TCPMuxHTTPConnectPort: svr.cfg.TCPMuxHTTPConnectPort,
+		TCPMUXMCConnectPort:   svr.cfg.TCPMUXMCConnectPort,
 		KCPBindPort:           svr.cfg.KCPBindPort,
 		QUICBindPort:          svr.cfg.QUICBindPort,
 		SubdomainHost:         svr.cfg.SubDomainHost,

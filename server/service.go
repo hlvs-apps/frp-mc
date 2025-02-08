@@ -187,6 +187,21 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		log.Infof("tcpmux httpconnect multiplexer listen on %s, passthough: %v", address, cfg.TCPMuxPassthrough)
 	}
 
+	if cfg.TCPMUXMCConnectPort > 0 {
+		var l net.Listener
+		address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.TCPMUXMCConnectPort))
+		l, err = net.Listen("tcp", address)
+		if err != nil {
+			return nil, fmt.Errorf("create server listener error, %v", err)
+		}
+
+		svr.rc.TCPMuxMCConnectMuxer, err = tcpmux.NewMCConnectTCPMuxer(l, vhostReadWriteTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("create vhost tcpMuxer error, %v", err)
+		}
+		log.Infof("tcpmux mcconnect multiplexer listen on %s", address)
+	}
+
 	// Init all plugins
 	for _, p := range cfg.HTTPPlugins {
 		svr.pluginManager.Register(plugin.NewHTTPPluginOptions(p))
@@ -201,7 +216,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	svr.rc.HTTPGroupCtl = group.NewHTTPGroupController(svr.httpVhostRouter)
 
 	// Init TCP mux group controller
-	svr.rc.TCPMuxGroupCtl = group.NewTCPMuxGroupCtl(svr.rc.TCPMuxHTTPConnectMuxer)
+	svr.rc.TCPMuxGroupCtl = group.NewTCPMuxGroupCtl(svr.rc.TCPMuxHTTPConnectMuxer, svr.rc.TCPMuxMCConnectMuxer)
 
 	// Init 404 not found page
 	vhost.NotFoundPagePath = cfg.Custom404Page

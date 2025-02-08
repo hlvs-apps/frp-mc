@@ -56,6 +56,7 @@ type ServerConfig struct {
 	// requests on one single port. If it's not - it will listen on this value for
 	// HTTP CONNECT requests.
 	TCPMuxHTTPConnectPort int `json:"tcpmuxHTTPConnectPort,omitempty"`
+	TCPMUXMCConnectPort   int `json:"tcpmuxMCConnectPort,omitempty"`
 	// If TCPMuxPassthrough is true, frps won't do any update on traffic.
 	TCPMuxPassthrough bool `json:"tcpmuxPassthrough,omitempty"`
 	// SubDomainHost specifies the domain that will be attached to sub-domains

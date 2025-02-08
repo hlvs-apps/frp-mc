@@ -139,7 +139,7 @@ func validateTCPMuxProxyConfigForClient(c *v1.TCPMuxProxyConfig) error {
 		return err
 	}
 
-	if !slices.Contains([]string{string(v1.TCPMultiplexerHTTPConnect)}, c.Multiplexer) {
+	if !slices.Contains([]string{string(v1.TCPMultiplexerHTTPConnect), string(v1.TCPMultiplexerMCConnect)}, c.Multiplexer) {
 		return fmt.Errorf("not support multiplexer: %s", c.Multiplexer)
 	}
 	return nil
@@ -205,6 +205,11 @@ func validateTCPMuxProxyConfigForServer(c *v1.TCPMuxProxyConfig, s *v1.ServerCon
 	if c.Multiplexer == string(v1.TCPMultiplexerHTTPConnect) &&
 		s.TCPMuxHTTPConnectPort == 0 {
 		return fmt.Errorf("tcpmux with multiplexer httpconnect not supported because this feature is not enabled in server")
+	}
+
+	if c.Multiplexer == string(v1.TCPMultiplexerMCConnect) &&
+		s.TCPMUXMCConnectPort == 0 {
+		return fmt.Errorf("tcpmux with multiplexer mcconnect not supported because this feature is not enabled in server")
 	}
 
 	return validateDomainConfigForServer(&c.DomainConfig, s)

@@ -33,14 +33,16 @@ type TCPMuxGroupCtl struct {
 
 	// portManager is used to manage port
 	tcpMuxHTTPConnectMuxer *tcpmux.HTTPConnectTCPMuxer
+	mcConnectMuxer         *tcpmux.MCConnectTCPMuxer
 	mu                     sync.Mutex
 }
 
 // NewTCPMuxGroupCtl return a new TCPMuxGroupCtl
-func NewTCPMuxGroupCtl(tcpMuxHTTPConnectMuxer *tcpmux.HTTPConnectTCPMuxer) *TCPMuxGroupCtl {
+func NewTCPMuxGroupCtl(tcpMuxHTTPConnectMuxer *tcpmux.HTTPConnectTCPMuxer, mcConnectMuxer *tcpmux.MCConnectTCPMuxer) *TCPMuxGroupCtl {
 	return &TCPMuxGroupCtl{
 		groups:                 make(map[string]*TCPMuxGroup),
 		tcpMuxHTTPConnectMuxer: tcpMuxHTTPConnectMuxer,
+		mcConnectMuxer:         mcConnectMuxer,
 	}
 }
 
@@ -62,6 +64,8 @@ func (tmgc *TCPMuxGroupCtl) Listen(
 	switch v1.TCPMultiplexerType(multiplexer) {
 	case v1.TCPMultiplexerHTTPConnect:
 		return tcpMuxGroup.HTTPConnectListen(ctx, group, groupKey, routeConfig)
+	case v1.TCPMultiplexerMCConnect:
+		return tcpMuxGroup.MCConnectListen(ctx, group, groupKey, routeConfig)
 	default:
 		err = fmt.Errorf("unknown multiplexer [%s]", multiplexer)
 		return
@@ -112,7 +116,51 @@ func (tmg *TCPMuxGroup) HTTPConnectListen(
 	defer tmg.mu.Unlock()
 	if len(tmg.lns) == 0 {
 		// the first listener, listen on the real address
-		tcpMuxLn, errRet := tmg.ctl.tcpMuxHTTPConnectMuxer.Listen(ctx, &routeConfig)
+		var tcpMuxLn, errRet = tmg.ctl.tcpMuxHTTPConnectMuxer.Listen(ctx, &routeConfig)
+		if errRet != nil {
+			return nil, errRet
+		}
+		ln = newTCPMuxGroupListener(group, tmg, tcpMuxLn.Addr())
+
+		tmg.group = group
+		tmg.groupKey = groupKey
+		tmg.domain = routeConfig.Domain
+		tmg.routeByHTTPUser = routeConfig.RouteByHTTPUser
+		tmg.username = routeConfig.Username
+		tmg.password = routeConfig.Password
+		tmg.tcpMuxLn = tcpMuxLn
+		tmg.lns = append(tmg.lns, ln)
+		if tmg.acceptCh == nil {
+			tmg.acceptCh = make(chan net.Conn)
+		}
+		go tmg.worker()
+	} else {
+		// route config in the same group must be equal
+		if tmg.group != group || tmg.domain != routeConfig.Domain ||
+			tmg.routeByHTTPUser != routeConfig.RouteByHTTPUser ||
+			tmg.username != routeConfig.Username ||
+			tmg.password != routeConfig.Password {
+			return nil, ErrGroupParamsInvalid
+		}
+		if tmg.groupKey != groupKey {
+			return nil, ErrGroupAuthFailed
+		}
+		ln = newTCPMuxGroupListener(group, tmg, tmg.lns[0].Addr())
+		tmg.lns = append(tmg.lns, ln)
+	}
+	return
+}
+
+func (tmg *TCPMuxGroup) MCConnectListen(
+	ctx context.Context,
+	group, groupKey string,
+	routeConfig vhost.RouteConfig,
+) (ln *TCPMuxGroupListener, err error) {
+	tmg.mu.Lock()
+	defer tmg.mu.Unlock()
+	if len(tmg.lns) == 0 {
+		// the first listener, listen on the real address
+		tcpMuxLn, errRet := tmg.ctl.mcConnectMuxer.Listen(ctx, &routeConfig)
 		if errRet != nil {
 			return nil, errRet
 		}

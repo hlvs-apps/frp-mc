@@ -356,6 +356,7 @@ type TCPMultiplexerType string
 
 const (
 	TCPMultiplexerHTTPConnect TCPMultiplexerType = "httpconnect"
+	TCPMultiplexerMCConnect   TCPMultiplexerType = "mcconnect"
 )
 
 var _ ProxyConfigurer = &TCPMuxProxyConfig{}
@@ -390,6 +391,27 @@ func (c *TCPMuxProxyConfig) UnmarshalFromMsg(m *msg.NewProxy) {
 	c.HTTPUser = m.HTTPUser
 	c.HTTPPassword = m.HTTPPwd
 	c.RouteByHTTPUser = m.RouteByHTTPUser
+}
+
+var _ ProxyConfigurer = &TCPMCMux{}
+
+type TCPMCMux struct {
+	ProxyBaseConfig
+	DomainConfig
+}
+
+func (c *TCPMCMux) MarshalToMsg(m *msg.NewProxy) {
+	c.ProxyBaseConfig.MarshalToMsg(m)
+
+	m.CustomDomains = c.CustomDomains
+	m.SubDomain = c.SubDomain
+}
+
+func (c *TCPMCMux) UnmarshalFromMsg(m *msg.NewProxy) {
+	c.ProxyBaseConfig.UnmarshalFromMsg(m)
+
+	c.CustomDomains = m.CustomDomains
+	c.SubDomain = m.SubDomain
 }
 
 var _ ProxyConfigurer = &STCPProxyConfig{}
