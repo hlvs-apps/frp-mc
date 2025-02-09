@@ -1121,11 +1121,19 @@ HTTP requests with URL prefix `/news` or `/about` will be forwarded to **web02**
 
 frp supports receiving TCP sockets directed to different proxies on a single port on frps, similar to `vhostHTTPPort` and `vhostHTTPSPort`.
 
-The only supported TCP port multiplexing method available at the moment is `httpconnect` - HTTP CONNECT tunnel.
+Currently supported multiplexers:
 
-When setting `tcpmuxHTTPConnectPort` to anything other than 0 in frps, frps will listen on this port for HTTP CONNECT requests.
+| Multiplexer | Description              | frps mux listen port  |
+|-------------|--------------------------|-----------------------|
+| httpconnect | HTTP CONNECT tunnel      | tcpmuxHTTPConnectPort |
+| mcconnect   | Minecraft Proxy Protocol | tcpmuxMCConnectPort   |
 
-The host of the HTTP CONNECT request will be used to match the proxy in frps. Proxy hosts can be configured in frpc by configuring `customDomains` and / or `subdomain` under `tcpmux` proxies, when `multiplexer = "httpconnect"`.
+When setting the mux listen port to a non-zero value, frps will listen on this port for the multiplexer,
+e.g. setting `tcpmuxHTTPConnectPort` to anything other than 0 in frps, frps will listen on this port for HTTP CONNECT
+requests.
+
+The host of the request will be used to match the proxy in frps. Proxy hosts can be configured in frpc by configuring
+`customDomains` and / or `subdomain` under `tcpmux` proxies, when `multiplexer = "<Multiplexer>"`.
 
 For example:
 
@@ -1133,6 +1141,7 @@ For example:
 # frps.toml
 bindPort = 7000
 tcpmuxHTTPConnectPort = 1337
+tcpmuxMCConnectPort = 25565
 ```
 
 ```toml
@@ -1153,9 +1162,16 @@ type = "tcpmux"
 multiplexer = "httpconnect"
 customDomains = ["test2"]
 localPort = 8080
+
+[[proxies]]
+name = "mcproxy1"
+type = "tcpmux"
+multiplexer = "mcconnect"
+customDomains = ["test1"]
+localPort = 25565
 ```
 
-In the above configuration - frps can be contacted on port 1337 with a HTTP CONNECT header such as:
+In the above configuration - frps can be contacted on port 1337 with an HTTP CONNECT header such as:
 
 ```
 CONNECT test1 HTTP/1.1\r\n\r\n
