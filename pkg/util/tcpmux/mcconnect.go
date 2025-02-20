@@ -23,9 +23,14 @@ func NewMCConnectTCPMuxer(listener net.Listener, timeout time.Duration) (*MCConn
 	}
 	mux.SetCheckAuthFunc(ret.auth).
 		SetSuccessHookFunc(ret.sendConnectResponse).
-		SetFailHookFunc(vhostFailed)
+		SetFailHookFunc(mcVhostFailed)
 	ret.Muxer = mux
 	return ret, err
+}
+
+func mcVhostFailed(c net.Conn) {
+	log.Debugf("MC Vhost failed, closing connection")
+	_ = c.Close()
 }
 
 func (muxer *MCConnectTCPMuxer) sendConnectResponse(_ net.Conn, _ map[string]string) error {
@@ -71,7 +76,7 @@ func (muxer *MCConnectTCPMuxer) getHostFromMCConnect(c net.Conn) (net.Conn, map[
 		if !ok {
 			return nil, reqInfoMap, nil
 		}
-		log.Infof("MC LegacyServerListPing from client %v, server address %v", clientAddr, handshake.ServerAddress)
+		log.Debugf("MC LegacyServerListPing from client %v, server address %v", clientAddr, handshake.ServerAddress)
 		reqInfoMap["Host"] = handshake.ServerAddress
 		reqInfoMap["Scheme"] = "tcp"
 	} else {
