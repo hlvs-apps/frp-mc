@@ -30,7 +30,9 @@ func NewMCConnectTCPMuxer(listener net.Listener, timeout time.Duration) (*MCConn
 
 func mcVhostFailed(c net.Conn) {
 	log.Debugf("MC Vhost failed, closing connection")
-	_ = c.Close()
+	if c != nil {
+		_ = c.Close()
+	}
 }
 
 func (muxer *MCConnectTCPMuxer) sendConnectResponse(_ net.Conn, _ map[string]string) error {
@@ -59,14 +61,14 @@ func (muxer *MCConnectTCPMuxer) getHostFromMCConnect(c net.Conn) (net.Conn, map[
 	packet, err := mcproto.ReadPacket(inspectionReader, clientAddr)
 	if err != nil {
 		log.Errorf("Failed to read packet from client %v: %v", clientAddr, err)
-		return nil, reqInfoMap, err
+		return sc, reqInfoMap, err
 	}
 
 	if packet.PacketID == mcproto.PacketIdHandshake {
 		handshake, err := mcproto.ReadHandshake(packet.Data)
 		if err != nil {
 			log.Errorf("Failed to read handshake from client %v: %v", clientAddr, err)
-			return nil, reqInfoMap, err
+			return sc, reqInfoMap, err
 		}
 		log.Debugf("MC Handshake from client %v, server address %v", clientAddr, handshake.ServerAddress)
 		reqInfoMap["Host"] = handshake.ServerAddress
@@ -81,7 +83,7 @@ func (muxer *MCConnectTCPMuxer) getHostFromMCConnect(c net.Conn) (net.Conn, map[
 		reqInfoMap["Scheme"] = "tcp"
 	} else {
 		log.Errorf("Unexpected packetID, expected handshake\n")
-		return nil, reqInfoMap, nil
+		return sc, reqInfoMap, nil
 	}
 
 	return sc, reqInfoMap, nil
